@@ -8,14 +8,14 @@ import scala.scalajs.concurrent.JSExecutionContext.Implicits.runNow
 import scala.async.Async.{async, await}
 import scalatags.JsDom.all._
 import scala.scalajs.js.annotation.JSExport
-import org.scalajs.dom.extensions.{AjaxException, Ajax}
+import org.scalajs.dom.ext.{AjaxException, Ajax}
 import Page._
 import JsVal.jsVal2jsAny
 import Client.RedLogger
 import scala.Some
-import autowire.Request
-import upickle.Implicits._
-@JSExport
+import upickle._
+import autowire._
+@JSExport("Checker")
 object Checker{
   /**
    * Deadline by which the user code must complete execution.
@@ -54,20 +54,20 @@ object Checker{
   }
 }
 
-object Post extends autowire.Client[Web]{
-
-  override def callRequest(req: Request): Future[String] = {
+object Post extends autowire.Client[String, upickle.Reader, upickle.Writer]{
+  override def doCall(req: Request): Future[String] = {
     val url = "/api/" + req.path.mkString("/")
     logln("Calling " + url)
-    dom.extensions.Ajax.post(
+    Ajax.post(
       url = Shared.url + url,
       data = upickle.write(req.args)
     ).map(_.responseText)
   }
+  def read[Result: upickle.Reader](p: String) = upickle.read[Result](p)
+  def write[Result: upickle.Writer](r: Result) = upickle.write(r)
 }
 
 class Client(){
-
 
   Client.scheduleResets()
   val command = Channel[Future[(String, Option[String])]]()
@@ -101,17 +101,18 @@ class Client(){
   }
 
   val editor: Editor = new Editor(Seq(
-    ("Compile", "Enter", () => command.update(Post[Api](_.fastOpt(editor.code)))),
-    ("FullOptimize", "Shift-Enter", () => command.update(Post[Api](_.fullOpt(editor.code)))),
+    ("Compile", "Enter", () => command.update(Post[Api].fastOpt(editor.code).call())),
+    ("FullOptimize", "Shift-Enter", () => command.update(Post[Api].fullOpt(editor.code).call())),
     ("Save", "S", save _),
     ("Complete", "Space", () => editor.complete()),
-    ("FastOptimizeJavascript", "J", () => showJavascript(Post[Api](_.compile(editor.code)))),
-    ("FullOptimizedJavascript", "Shift-J", () => showJavascript(Post[Api](_.fullOpt(editor.code)))),
+    ("FastOptimizeJavascript", "J", () => showJavascript(Post[Api].fastOpt(editor.code).call())),
+    ("FullOptimizedJavascript", "Shift-J", () => showJavascript(Post[Api].fullOpt(editor.code).call())),
     ("Export", "E", export _)
   ), complete, RedLogger)
 
-  logln("- ", blue("Cmd/Ctrl-Enter"), " to compile & execute, ", blue("Cmd/Ctrl-Space"), " for autocomplete.")
-  logln("- Go to ", a(href:=fiddle.Shared.url, fiddle.Shared.url), " to find out more.")
+  logln("- ", yellow("Cmd/Ctrl-Enter"), " to compile & execute, ", yellow("Cmd/Ctrl-Space"), " for autocomplete.")
+  val landing = fiddle.Shared.url + "/gist/" + fiddle.Shared.gistId + "/LandingPage.scala"
+  logln("- ", a(href:=landing, "Click here"), " to find out more.")
 
   def compile(res: Future[(String, Option[String])]): Future[Option[String]] = {
     res.map { case (logspam, result) =>
@@ -154,7 +155,7 @@ class Client(){
     val flag = if(code.take(intOffset).endsWith(".")) "member" else "scope"
 
 
-    val res = await(Post[Api](_.completeStuff(code, flag, intOffset)))
+    val res = await(Post[Api].completeStuff(code, flag, intOffset).call())
     log("Done")
     logln()
     res
@@ -162,7 +163,7 @@ class Client(){
 
   def export(): Unit = task*async {
     logln("Exporting...")
-    await(compile(Post[Api](_.fullOpt(editor.code)))).foreach{ code =>
+    await(compile(Post[Api].fullOpt(editor.code).call())).foreach{ code =>
       Util.Form.post("/export",
         "source" -> editor.code,
         "compiled" -> code
@@ -171,7 +172,7 @@ class Client(){
   }
 
   def save(): Unit = task*async{
-    await(compile(Post[Api](_.fullOpt(editor.code))))
+    await(compile(Post[Api].fullOpt(editor.code).call()))
     val data = JsVal.obj(
       "description" -> "Scala.jsFiddle gist",
       "public" -> true,
@@ -188,14 +189,14 @@ class Client(){
   }
 }
 
-@JSExport
+@JSExport("Client")
 object Client{
   implicit val RedLogger = new Logger(logError)
 
-  dom.onerror = ({(event: dom.Event, source: js.String, fileno: js.Number, columnNumber: js.Number) =>
+  dom.onerror = {(event: dom.Event, source: String, fileno: Int, columnNumber: Int) =>
     dom.console.log("dom.onerror")
     Client.logError(event.toString())
-  }: js.Function4[dom.Event, js.String, js.Number, js.Number, Unit]).asInstanceOf[dom.ErrorEventHandler]
+  }
 
 
   @JSExport
@@ -220,7 +221,7 @@ object Client{
     dom.console.log("gistMain")
     Editor.initEditor
     val (gistId, fileName) = args.toSeq match{
-      case Nil => (fiddle.Shared.gistId, Some("LandingPage.scala"))
+      case Nil => (fiddle.Shared.gistId, Some("Oscilloscope.scala"))
       case Seq(g) => (g, None)
       case Seq(g, f) => (g, Some(f))
     }
@@ -229,7 +230,7 @@ object Client{
     val client = new Client()
     client.editor.sess.setValue(src)
 
-    client.command.update(Post[Api](_.fullOpt(src)))
+    client.command.update(Post[Api].fullOpt(src).call())
   }
 
   @JSExport

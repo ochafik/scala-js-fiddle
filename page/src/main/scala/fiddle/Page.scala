@@ -3,6 +3,7 @@ package fiddle
 import scala.scalajs.js
 import js.annotation.JSExport
 import org.scalajs.dom
+import dom.html
 import scalatags.JsDom.all._
 
 /**
@@ -15,17 +16,18 @@ object Page{
   val fiddleUrl = Shared.url
   val fiddleGistId = Shared.gistId
 
-  def red = span(color:="#ffaaaa")
-  def blue = span(color:="#aaaaff")
-  def green = span(color:="#aaffaa")
+  def red = span(color:="#E95065")
+  def blue = span(color:="#46BDDF")
+  def green = span(color:="#52D273")
+  def yellow = span(color:="#E5C453")
+  def orange = span(color:="#E57255")
 
-
-  def sandbox = Util.getElem[dom.HTMLDivElement]("sandbox")
-  def canvas = Util.getElem[dom.HTMLCanvasElement]("canvas")
+  def sandbox = Util.getElem[html.Div]("sandbox")
+  def canvas = Util.getElem[html.Canvas]("canvas")
   def renderer = canvas.getContext("2d").asInstanceOf[dom.CanvasRenderingContext2D]
-  def output = Util.getElem[dom.HTMLDivElement]("output")
-  def logspam = Util.getElem[dom.HTMLPreElement]("logspam")
-  def source = Util.getElem[dom.HTMLDivElement]("source")
+  def output = Util.getElem[html.Div]("output")
+  def logspam = Util.getElem[html.Pre]("logspam")
+  def source = Util.getElem[html.Div]("source")
 
   def println(ss: Modifier*) = {
     print(div(ss: _*))
@@ -40,6 +42,10 @@ object Page{
     output.innerHTML = ""
     canvas.height = sandbox.clientHeight
     canvas.width = sandbox.clientWidth
+    val tmp = renderer.fillStyle
+    renderer.fillStyle = "rgb(20, 20, 20)"
+    renderer.clearRect(0, 0, 10000, 10000)
+    renderer.fillStyle = tmp
   }
 
   def scroll(px: Int) = {
@@ -56,13 +62,13 @@ object Page{
     logspam.scrollTop = 1000000000
   }
 
-  val compiled = Util.getElem[dom.HTMLDivElement]("compiled").textContent
+  val compiled = Util.getElem[html.Div]("compiled").textContent
 
   @JSExport
   def exportMain(): Unit = {
     dom.console.log("exportMain")
     clear()
-    val editor = Util.getElem[dom.HTMLDivElement]("editor")
+    val editor = Util.getElem[html.Div]("editor")
     js.Dynamic.global.require("ace")
     editor.innerHTML = highlight(source.textContent, "ace/mode/scala")
     if(logspam.textContent == "") {
@@ -72,7 +78,7 @@ object Page{
     }
     dom.document
        .getElementById("editLink")
-       .asInstanceOf[dom.HTMLAnchorElement]
+       .asInstanceOf[html.Anchor]
        .onclick = { (e: dom.MouseEvent) =>
       Util.Form.post(fiddle.Shared.url + "/import",
         "source" -> source.textContent,

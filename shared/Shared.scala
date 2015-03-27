@@ -8,7 +8,7 @@ object Shared{
       |import scalatags.JsDom.all._
       |import org.scalajs.dom
       |import fiddle.Page
-      |import Page.{red, green, blue, println}
+      |import Page.{red, green, blue, yellow, orange, println}
       |import scalajs.js
     """.stripMargin
 
@@ -24,14 +24,11 @@ object Shared{
 
   val gistId = "9443f8e0ecc68d1058ad"
 
-  val url = "http://localhost:8080"
+  val url = "http://www.scala-js-fiddle.com"
+//  val url = "http://localhost:8080"
 }
 
-class Web extends ClassfileAnnotation
-
-@Web
 trait Api{
-  def compile(txt: String): (String, Option[String])
   def fastOpt(txt: String): (String, Option[String])
   def fullOpt(txt: String): (String, Option[String])
   def export(compiled: String, source: String): String
